@@ -1,0 +1,83 @@
+.synctex-hint {
+  margin-left: 10px;
+  color: #4d7b60;
+  font-size: 11px;
+  padding-left: 14px;
+  position: relative;
+}
+
+.synctex-hint::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border: 1.5px solid #4d8a68;
+  border-radius: 50%;
+  transform: translateY(-50%);
+}
+
+.synctex-hint.unavailable { color: #929d95; }
+.pdf-toolbar #pdf-zoom-label {
+  min-width: 70px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: #76847a;
+}
+.pdf-toolbar #pdf-zoom-in,
+.pdf-toolbar #pdf-zoom-out {
+  font-size: 17px;
+  line-height: 20px;
+  min-width: 25px;
+}
+.pdf-viewer {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  padding: 22px 18px 45px;
+  background: #dfe3df;
+  overscroll-behavior: contain;
+  text-align: center;
+}
+.pdf-viewer.loading::before {
+  content: "正在载入 PDF…";
+  display: block;
+  color: #7a887e;
+  padding: 30px;
+}
+.pdf-page-shell {
+  position: relative;
+  width: max-content;
+  margin: 0 auto 22px;
+  box-shadow: 0 3px 16px #1e33283d;
+  background: #fff;
+}
+.pdf-page-canvas {
+  display: block;
+  background: #fff;
+  cursor: crosshair;
+  user-select: none;
+}
+.pdf-page-canvas.locating {
+  cursor: progress;
+  box-shadow: 0 0 0 3px #68a77f;
+}
+.pdf-page-number {
+  position: absolute;
+  right: 8px;
+  bottom: 7px;
+  background: #243c31c9;
+  color: #fff;
+  border-radius: 10px;
+  padding: 2px 7px;
+  font-size: 10px;
+  opacity: 0;
+  transition: opacity .15s;
+  pointer-events: none;
+}
+.pdf-page-shell:hover .pdf-page-number { opacity: 1; }
+.synctex-source-line {
+  background: #dff1cf !important;
+  box-shadow: inset 3px 0 #4b925f;
+}

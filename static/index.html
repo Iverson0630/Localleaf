@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>LocalLeaf · 离线论文工作台</title>
+  <meta name="description" content="本地保存、离线编译的 LaTeX 论文编辑器。">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232b7155'/%3E%3Cpath d='M9 23V9h3v11h11v3z' fill='white'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/vendor/codemirror.css">
+  <link rel="stylesheet" href="/static/app.css">
+  <link rel="stylesheet" href="/static/pdf-viewer.css">
+  <link rel="stylesheet" href="/static/git-sync.css">
+  <script defer src="/static/vendor/codemirror.js"></script>
+  <script defer src="/static/vendor/stex.js"></script>
+  <script defer src="/static/app.js"></script>
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/" aria-label="LocalLeaf 首页"><span class="brand-icon">L<span>↗</span></span>LocalLeaf</a>
+  <span class="header-divider"></span>
+  <button id="projects-button" class="project-switch"><span id="project-name">论文工作台</span><span class="chevron">⌄</span></button>
+  <span id="save-status" class="save-status" role="status">正在连接本地工作台…</span>
+  <div class="top-actions"><span class="local-badge"><i></i> 本地 · 离线可用</span><button id="git-sync-button" class="top-button git-sync-button" title="连接或同步 Overleaf"><span class="git-sync-icon">⇅</span> <span id="git-sync-label">连接 Overleaf</span></button><button id="export-button" class="top-button" title="导出项目 ZIP">↓ 导出项目</button><button id="settings-button" class="icon-button" title="项目设置" aria-label="项目设置">⚙</button></div>
+</header>
+<main class="workspace">
+  <aside class="sidebar">
+    <div class="pane-heading"><span>项目文件</span><div><button class="icon-button" id="new-file-button" title="新建文件" aria-label="新建文件">＋</button><button class="icon-button" id="upload-button" title="上传文件" aria-label="上传文件">↥</button></div></div>
+    <div id="file-tree" class="file-tree" aria-label="项目文件列表"></div>
+    <div class="sidebar-section"><span>文档大纲</span><span class="subtle">OUTLINE</span></div>
+    <nav id="outline" class="outline" aria-label="当前文件章节"></nav>
+    <div class="sidebar-bottom"><button id="history-button">◷ <span>历史版本</span></button><button id="help-button">? <span>使用指南</span><kbd>⌘ ↵</kbd></button><div class="private-note"><span class="status-dot"></span> 文件仅保存在这台电脑</div></div>
+  </aside>
+  <section class="editor-pane" aria-label="源码编辑器">
+    <div class="pane-heading editor-heading"><div class="source-tab"><span class="tex-icon">TᴇX</span><span id="file-tab">main.tex</span><span id="dirty-dot" hidden>●</span></div><button class="icon-button" id="file-menu-button" title="重命名或删除当前文件" aria-label="文件操作">⋯</button></div>
+    <div class="editor-toolbar"><span class="source-label">源码</span><span class="tool-separator"></span><button data-insert="bold" title="插入粗体"><b>B</b></button><button data-insert="italic" title="插入斜体"><i>I</i></button><button data-insert="equation" title="插入公式">∑</button><button data-insert="cite" title="插入引用">[1]</button><span class="toolbar-spacer"></span><button id="search-button" title="查找与替换 (⌘F)">⌕ <span>查找</span></button></div>
+    <div id="search-bar" class="search-bar" hidden><input id="find-input" placeholder="查找文本" aria-label="查找文本"><button id="find-next">下一个</button><input id="replace-input" placeholder="替换为" aria-label="替换文本"><button id="replace-one">替换</button><button id="replace-all">全部</button><button id="close-search" aria-label="关闭查找">×</button></div>
+    <div id="editor-container"><textarea id="source" aria-label="LaTeX 源码" spellcheck="false"></textarea><div id="binary-view" hidden></div></div>
+    <footer class="editor-footer"><span id="cursor-position">行 1，列 1</span><span id="word-count">0 字符</span><span class="toolbar-spacer"></span><span>UTF-8</span><button id="font-size-button" title="调整编辑字号">Aa</button></footer>
+  </section>
+  <div id="splitter" class="splitter" role="separator" tabindex="0" aria-label="调整源码和 PDF 宽度" aria-orientation="vertical" aria-valuenow="50"></div>
+  <section class="preview-pane" aria-label="PDF 预览">
+    <div class="pane-heading preview-heading"><button id="compile-button" class="compile-button"><span id="compile-icon">▷</span><span id="compile-label">重新编译</span><kbd>⌘ ↵</kbd></button><label class="auto-toggle"><input id="auto-compile" type="checkbox"><span>自动编译</span></label><span class="toolbar-spacer"></span><button id="download-pdf" class="icon-button" title="下载 PDF" aria-label="下载 PDF">↓</button></div>
+    <div class="pdf-toolbar"><span class="pdf-label">PDF 预览</span><span id="synctex-hint" class="synctex-hint">双击正文跳转源码</span><span class="toolbar-spacer"></span><button id="pdf-zoom-out" title="缩小 PDF" disabled>−</button><span id="pdf-zoom-label">适合宽度</span><button id="pdf-zoom-in" title="放大 PDF" disabled>＋</button><button id="pdf-open" title="在新标签页打开 PDF">↗ 打开 PDF</button></div>
+    <div class="pdf-area" id="pdf-area"><div class="empty-preview" id="empty-preview"><div class="paper-symbol"><span>TᴇX</span><i></i><i></i><i></i></div><h1>让想法成为论文</h1><p>在左侧编辑 LaTeX，点击「重新编译」<br>即可在这里查看 PDF。</p><button id="first-compile" class="secondary-button">编译第一份论文 <span>→</span></button><span id="engine-note" class="engine-note">正在检测本地编译器…</span></div><div id="pdf-viewer" class="pdf-viewer" aria-label="编译后的论文 PDF；双击页面可跳转源码" hidden></div></div>
+    <div class="build-status"><button id="log-toggle"><span id="build-dot" class="status-dot neutral"></span><span id="build-summary">尚未编译</span><span class="log-link">编译日志 ⌃</span></button></div>
+    <pre id="build-log" class="build-log" hidden></pre>
+  </section>
+</main>
+<input type="file" id="file-upload" multiple hidden><input type="file" id="zip-upload" accept=".zip" hidden>
+<dialog id="modal"><div class="modal-heading"><h2 id="modal-title"></h2><button id="modal-close" aria-label="关闭对话框">×</button></div><div id="modal-body"></div></dialog>
+<div id="toast" class="toast" role="status" hidden></div>
+</body>
+</html>
