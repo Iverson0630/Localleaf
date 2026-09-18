@@ -3,6 +3,37 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const state = {token:'', projects:[], project:null, files:[], file:null, revision:null, dirty:false, loading:false, saving:null, compiling:false, syncing:false, switching:false, build:null, gitStatus:null, environment:{}, editVersion:0, pdfViewer:null, sourceHighlight:null};
 let saveTimer, autoTimer, toastTimer;
+const themeOrder=['light','dark','sepia','ocean'];
+const themeNames={zh:{light:'浅色',dark:'深色',sepia:'暖纸',ocean:'海蓝'},en:{light:'Light',dark:'Dark',sepia:'Sepia',ocean:'Ocean'}};
+const translations={
+  zh:{localOffline:'本地 · 离线可用',exportProject:'导出项目',projectFiles:'项目文件',documentOutline:'文档大纲',history:'历史版本',userGuide:'使用指南',localOnly:'文件仅保存在这台电脑',source:'源码',find:'查找',pdfPreview:'PDF 预览',doubleClickSource:'双击正文跳转源码',fitWidth:'适合宽度',openPdf:'打开 PDF',compileAgain:'重新编译',autoCompile:'自动编译',makeIdeaPaper:'让想法成为论文',emptyHint:'在左侧编辑 LaTeX，点击「重新编译」即可在这里查看 PDF。',compileFirst:'编译第一份论文'},
+  en:{localOffline:'Local · Offline',exportProject:'Export project',projectFiles:'Project files',documentOutline:'Document outline',history:'History',userGuide:'User guide',localOnly:'Files stay on this Mac',source:'Source',find:'Find',pdfPreview:'PDF preview',doubleClickSource:'Double-click text to jump to source',fitWidth:'Fit width',openPdf:'Open PDF',compileAgain:'Compile again',autoCompile:'Auto compile',makeIdeaPaper:'Turn ideas into papers',emptyHint:'Edit LaTeX on the left, then click “Compile again” to preview the PDF here.',compileFirst:'Compile your first paper'}
+};
+function applyLanguage(language){
+  state.language=language==='en'?'en':'zh';
+  const dict=translations[state.language];
+  document.documentElement.lang=state.language==='en'?'en':'zh-CN';
+  document.querySelectorAll('[data-i18n]').forEach(el=>{if(dict[el.dataset.i18n])el.textContent=dict[el.dataset.i18n];});
+  $('language-toggle').textContent=state.language==='en'?'中文':'EN';
+  $('language-toggle').title=state.language==='en'?'Switch to Chinese':'切换为英文';
+  $('language-toggle').setAttribute('aria-label',$('language-toggle').title);
+  $('theme-toggle').title=(state.language==='en'?'Color theme: ':'配色：')+themeNames[state.language][state.theme]+' · '+(state.language==='en'?'click to change':'点击切换');
+  $('theme-toggle').setAttribute('aria-label',$('theme-toggle').title);
+  if($('compile-label')&&!state.compiling)$('compile-label').textContent=dict.compileAgain;
+  if($('git-sync-label')&&!state.syncing)$('git-sync-label').textContent=state.gitStatus?.configured?(state.language==='en'?'Sync Overleaf':'同步 Overleaf'):(state.language==='en'?'Connect Overleaf':'连接 Overleaf');
+  document.title=(state.project?.name||'LocalLeaf')+' · '+(state.language==='en'?'Offline paper workspace':'离线论文工作台');
+  localStorage.setItem('localleaf-language',state.language);
+}
+function applyTheme(theme){
+  state.theme=themeOrder.includes(theme)?theme:'light';
+  document.documentElement.dataset.theme=state.theme;
+  $('theme-toggle').textContent={light:'☾',dark:'☼',sepia:'◐',ocean:'◈'}[state.theme];
+  if(state.language)applyLanguage(state.language); else localStorage.setItem('localleaf-theme',state.theme);
+  localStorage.setItem('localleaf-theme',state.theme);
+}
+state.language=localStorage.getItem('localleaf-language')||'en';
+state.theme=localStorage.getItem('localleaf-theme')||'light';
+applyTheme(state.theme);applyLanguage(state.language);
 const editor = CodeMirror.fromTextArea($('source'), {
   mode:'stex', lineNumbers:true, lineWrapping:true, indentUnit:2, tabSize:2,
   extraKeys:{'Cmd-S':()=>guard(save), 'Ctrl-S':()=>guard(save), 'Cmd-Enter':()=>compile(), 'Ctrl-Enter':()=>compile(),
@@ -109,7 +140,7 @@ async function openProject(pid){
   await save();clearTimeout(autoTimer);
   const data=await api('project?id='+encodeURIComponent(pid));
   state.project=data.project;state.files=data.files;state.build=data.build;state.file=null;state.dirty=false;
-  $('project-name').textContent=data.project.name;document.title=data.project.name+' · LocalLeaf';localStorage.setItem('localleaf-project',pid);
+  $('project-name').textContent=data.project.name;document.title=data.project.name+' · '+(state.language==='en'?'Offline paper workspace':'离线论文工作台');localStorage.setItem('localleaf-project',pid);
   const previous=localStorage.getItem('localleaf-file:'+pid);
   const selected=state.files.some(f=>f.path===previous)?previous:state.project.main||state.files[0]?.path;
   renderFiles();showBuild(data.build);
@@ -174,12 +205,14 @@ async function compile(){
     if(!result.ok) toast('编译未成功，请查看下方日志。',true);
     else if(version!==state.editVersion) { $('build-summary').textContent+=' · 有新修改待编译';if($('auto-compile').checked)autoTimer=setTimeout(()=>compile(),800); }
   }catch(e){toast(e.message,true);$('build-summary').textContent='编译未完成';$('build-log').textContent=e.message;$('build-log').hidden=false;$('build-dot').className='status-dot error';}
-  finally{state.compiling=false;$('compile-button').disabled=false;$('first-compile').disabled=false;$('compile-button').classList.remove('busy');$('compile-label').textContent='重新编译';}
+  finally{state.compiling=false;$('compile-button').disabled=false;$('first-compile').disabled=false;$('compile-button').classList.remove('busy');$('compile-label').textContent=state.language==='en'?'Compile again':'重新编译';}
 }
 function modal(title,html){$('modal-title').textContent=title;$('modal-body').innerHTML=html;if(!$('modal').open)$('modal').showModal();}
 async function guard(fn){try{await fn();}catch(e){toast(e.message,true);}}
 function bind(id,fn){$(id).onclick=()=>guard(fn);}
 function formSubmit(fn){$('modal-form').onsubmit=e=>{e.preventDefault();const b=$('modal-form').querySelector('[type=submit]');b.disabled=true;guard(fn).finally(()=>{if(b.isConnected)b.disabled=false;});};}
+bind('language-toggle',()=>applyLanguage(state.language==='en'?'zh':'en'));
+bind('theme-toggle',()=>applyTheme(themeOrder[(themeOrder.indexOf(state.theme)+1)%themeOrder.length]));
 bind('modal-close',()=> $('modal').close());
 $('modal').addEventListener('click',e=>{if(e.target===$('modal')) {const r=$('modal').getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)$('modal').close();}});
 bind('compile-button',compile);bind('first-compile',compile);
@@ -188,7 +221,7 @@ function updateGitButton(status){
   button.classList.toggle('connected',!!status?.configured);
   if(state.syncing){label.textContent='正在同步…';button.classList.add('busy');button.disabled=true;return;}
   button.classList.remove('busy');button.disabled=!status?.available;
-  label.textContent=status?.configured?'同步 Overleaf':'连接 Overleaf';
+  label.textContent=status?.configured?(state.language==='en'?'Sync Overleaf':'同步 Overleaf'):(state.language==='en'?'Connect Overleaf':'连接 Overleaf');
   button.title=status?.configured?`一键拉取并推送 · ${status.remote}`:'连接 Overleaf Git 项目';
 }
 async function refreshGitStatus(){
@@ -252,7 +285,7 @@ bind('file-menu-button',()=>{
 bind('settings-button',()=>{
   modal('项目设置',`<form id="modal-form"><label class="field">项目名称<input id="setting-name" value="${esc(state.project.name)}" required></label><label class="field">主文件<select id="setting-main">${state.files.filter(f=>f.path.endsWith('.tex')).map(f=>`<option${f.path===state.project.main?' selected':''}>${esc(f.path)}</option>`).join('')}</select></label><label class="field">编译器<select id="setting-engine">${['xelatex','pdflatex','lualatex'].map(x=>`<option value="${x}"${x===state.project.engine?' selected':''}>${x}${state.environment.engines?.[x]?'':'（未安装）'}</option>`).join('')}</select></label><p class="hint">项目文件夹会使用这里的项目名称。中文论文请选择 XeLaTeX。编译自动处理 BibTeX / Biber 和交叉引用。</p><div class="modal-actions"><button id="git-settings-button" type="button" class="secondary">Overleaf Git 设置</button><button type="submit" class="primary">保存设置</button></div></form>`);
   bind('git-settings-button',gitSetupDialog);
-  formSubmit(async()=>{await save();state.project=await api('settings',{id:state.project.id,name:$('setting-name').value,main:$('setting-main').value,engine:$('setting-engine').value});localStorage.setItem('localleaf-project',state.project.id);$('project-name').textContent=state.project.name;document.title=state.project.name+' · LocalLeaf';renderFiles();await refreshGitStatus();$('modal').close();toast('设置已保存');});
+  formSubmit(async()=>{await save();state.project=await api('settings',{id:state.project.id,name:$('setting-name').value,main:$('setting-main').value,engine:$('setting-engine').value});localStorage.setItem('localleaf-project',state.project.id);$('project-name').textContent=state.project.name;document.title=state.project.name+' · '+(state.language==='en'?'Offline paper workspace':'离线论文工作台');renderFiles();await refreshGitStatus();$('modal').close();toast('设置已保存');});
 });
 bind('history-button',async()=>{
   await save();const rows=await api('history?'+query());

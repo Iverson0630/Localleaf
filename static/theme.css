@@ -1,0 +1,71 @@
+.utility-button{font-size:13px;min-width:32px;border:1px solid #ffffff45!important;color:#fff}
+html[data-theme="dark"]{color-scheme:dark}
+html[data-theme="dark"] body{background:#18221d;color:#dce9df}
+html[data-theme="dark"] .sidebar,html[data-theme="dark"] .sidebar .pane-heading{background:#1e2b24}
+html[data-theme="dark"] .pane-heading,html[data-theme="dark"] .source-tab,html[data-theme="dark"] .editor-footer{background:#202d26;border-color:#34433a}
+html[data-theme="dark"] .editor-toolbar,html[data-theme="dark"] .pdf-toolbar{background:#25332b;border-color:#34433a;color:#b2c2b7}
+html[data-theme="dark"] .file-row.selected{background:#294c38;color:#d9f0df}
+html[data-theme="dark"] .file-row:hover,html[data-theme="dark"] .outline button:hover,html[data-theme="dark"] button:hover{background:#2b3d32}
+html[data-theme="dark"] .file-type,html[data-theme="dark"] .folder,html[data-theme="dark"] .outline button,html[data-theme="dark"] .outline .outline-empty{color:#9aafa1}
+html[data-theme="dark"] .sidebar-section,html[data-theme="dark"] .sidebar-bottom{border-color:#34433a}
+html[data-theme="dark"] .editor-pane,html[data-theme="dark"] .CodeMirror,html[data-theme="dark"] .CodeMirror-gutters{background:#202d26;color:#d6e4da}
+html[data-theme="dark"] .CodeMirror-linenumber{color:#718276}
+html[data-theme="dark"] .CodeMirror-selected{background:#315540!important}
+html[data-theme="dark"] .pdf-area{background:#202923}
+html[data-theme="dark"] .empty-preview{color:#b7c8bb}
+html[data-theme="dark"] .empty-preview h1{color:#d5e5d9}
+html[data-theme="dark"] .empty-preview p,html[data-theme="dark"] .engine-note{color:#9db0a2}
+html[data-theme="dark"] .build-status{background:#202d26;border-color:#34433a}
+html[data-theme="dark"] dialog{background:#202d26;color:#dce9df;border-color:#405247}
+html[data-theme="dark"] .modal-heading{border-color:#34433a}
+html[data-theme="dark"] .field input,html[data-theme="dark"] .field select{background:#18221d;color:#dce9df;border-color:#405247}
+html[data-theme="dark"] .project-card{border-color:#405247}
+html[data-theme="dark"] .project-card.active{background:#294333;border-color:#5a9270}
+html[data-theme="dark"] .search-bar{background:#25332b;border-color:#34433a}
+html[data-theme="dark"] .search-bar input{background:#18221d;color:#dce9df;border-color:#405247}
+html[data-theme="dark"] .secondary-button,html[data-theme="dark"] .secondary{background:#25352b;color:#c9dfce;border-color:#4b6554}
+html[data-theme="dark"] .help-content code{background:#2b3c31}
+
+/* Warm paper palette for long reading sessions. */
+html[data-theme="sepia"] body{background:#f5efe3;color:#443a2d}
+html[data-theme="sepia"] .sidebar,html[data-theme="sepia"] .sidebar .pane-heading,html[data-theme="sepia"] .pane-heading,html[data-theme="sepia"] .source-tab,html[data-theme="sepia"] .editor-footer{background:#fbf6eb;border-color:#ded2bd}
+html[data-theme="sepia"] .editor-toolbar,html[data-theme="sepia"] .pdf-toolbar{background:#f7f0e3;border-color:#e3d7c3}
+html[data-theme="sepia"] .editor-pane,html[data-theme="sepia"] .CodeMirror,html[data-theme="sepia"] .CodeMirror-gutters{background:#fbf6eb;color:#514535}
+html[data-theme="sepia"] .file-row.selected{background:#eadcc1;color:#684d2e}
+html[data-theme="sepia"] .file-row:hover,html[data-theme="sepia"] .outline button:hover,html[data-theme="sepia"] button:hover{background:#eee2cc}
+html[data-theme="sepia"] .sidebar-section,html[data-theme="sepia"] .sidebar-bottom{border-color:#ded2bd}
+html[data-theme="sepia"] .pdf-area{background:#e9dfce}
+html[data-theme="sepia"] .build-status{background:#fbf6eb;border-color:#ded2bd}
+html[data-theme="sepia"] dialog{background:#fbf6eb;color:#443a2d;border-color:#d8c9ad}
+html[data-theme="sepia"] .modal-heading{border-color:#ded2bd}
+html[data-theme="sepia"] .field input,html[data-theme="sepia"] .field select{background:#fffaf0;color:#443a2d;border-color:#d8c9ad}
+html[data-theme="sepia"] .project-card{border-color:#d8c9ad}
+html[data-theme="sepia"] .project-card.active{background:#f0e4ce;border-color:#b99864}
+html[data-theme="sepia"] .search-bar{background:#f2e9d9;border-color:#ded2bd}
+html[data-theme="sepia"] .search-bar input{background:#fffaf0;color:#443a2d;border-color:#d8c9ad}
+
+/* Blue-green night palette. */
+html[data-theme="ocean"]{color-scheme:dark}
+html[data-theme="ocean"] body{background:#101d2b;color:#dcecf2}
+html[data-theme="ocean"] .sidebar,html[data-theme="ocean"] .sidebar .pane-heading{background:#152638}
+html[data-theme="ocean"] .pane-heading,html[data-theme="ocean"] .source-tab,html[data-theme="ocean"] .editor-footer{background:#172b3d;border-color:#2d4658}
+html[data-theme="ocean"] .editor-toolbar,html[data-theme="ocean"] .pdf-toolbar{background:#1d3448;border-color:#2d4658;color:#b5cbd8}
+html[data-theme="ocean"] .file-row.selected{background:#244d5b;color:#d7f1f1}
+html[data-theme="ocean"] .file-row:hover,html[data-theme="ocean"] .outline button:hover,html[data-theme="ocean"] button:hover{background:#254258}
+html[data-theme="ocean"] .file-type,html[data-theme="ocean"] .folder,html[data-theme="ocean"] .outline button,html[data-theme="ocean"] .outline .outline-empty{color:#91abb8}
+html[data-theme="ocean"] .sidebar-section,html[data-theme="ocean"] .sidebar-bottom{border-color:#2d4658}
+html[data-theme="ocean"] .editor-pane,html[data-theme="ocean"] .CodeMirror,html[data-theme="ocean"] .CodeMirror-gutters{background:#172b3d;color:#d8e9ef}
+html[data-theme="ocean"] .CodeMirror-linenumber{color:#718d9d}
+html[data-theme="ocean"] .CodeMirror-selected{background:#28556a!important}
+html[data-theme="ocean"] .pdf-area{background:#162a3b}
+html[data-theme="ocean"] .empty-preview{color:#b6ced8}
+html[data-theme="ocean"] .empty-preview h1{color:#d4e9ef}
+html[data-theme="ocean"] .empty-preview p,html[data-theme="ocean"] .engine-note{color:#9bb5c0}
+html[data-theme="ocean"] .build-status{background:#172b3d;border-color:#2d4658}
+html[data-theme="ocean"] dialog{background:#172b3d;color:#dcecf2;border-color:#3a596b}
+html[data-theme="ocean"] .modal-heading{border-color:#2d4658}
+html[data-theme="ocean"] .field input,html[data-theme="ocean"] .field select{background:#101d2b;color:#dcecf2;border-color:#3a596b}
+html[data-theme="ocean"] .project-card{border-color:#3a596b}
+html[data-theme="ocean"] .project-card.active{background:#214453;border-color:#5cabb0}
+html[data-theme="ocean"] .search-bar{background:#1d3448;border-color:#2d4658}
+html[data-theme="ocean"] .search-bar input{background:#101d2b;color:#dcecf2;border-color:#3a596b}

@@ -32,6 +32,7 @@ If the default port is in use, run `python3 server.py --port 8788`.
 - Manual or automatic compilation, real PDF preview and download, compilation logs, and ZIP import/export.
 - Reverse PDF-to-source navigation: double-click text in the PDF to open the corresponding project file and jump to the related LaTeX line.
 - One-click synchronization with Overleaf Git projects. The token is stored in the macOS Keychain and is not written into the paper directory.
+- Switch among light, dark, sepia, and ocean color themes, and between Chinese and English interface text. English is the default, and these preferences are saved locally in the browser.
 - Project folders use the project name directly; duplicate names receive a `(2)` suffix.
 - Compilation uses a project snapshot. If compilation fails, the last successful PDF is kept; a single compilation is stopped after 120 seconds.
 
