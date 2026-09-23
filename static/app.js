@@ -1,4 +1,5 @@
 'use strict';
+const EXPECTED_API_VERSION=3;
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const state = {token:'', projects:[], project:null, files:[], file:null, revision:null, dirty:false, loading:false, saving:null, compiling:false, syncing:false, switching:false, build:null, gitStatus:null, environment:{}, editVersion:0, pdfViewer:null, sourceHighlight:null};
@@ -352,7 +353,9 @@ window.addEventListener('beforeunload',e=>{if(state.dirty){keepDraft();e.prevent
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&state.dirty){keepDraft();save().catch(()=>{});}});
 document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){e.preventDefault();compile();}if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='s'){e.preventDefault();guard(save);}});
 async function init(){
-  const data=await api('bootstrap');state.token=data.token;state.projects=data.projects;state.environment=data.environment;state.dataPath=data.dataPath;
+  const data=await api('bootstrap');
+  if(data.apiVersion!==EXPECTED_API_VERSION)throw new Error(state.language==='en'?'The LocalLeaf background service is outdated. Quit LocalLeaf and open LocalLeaf.app again.':'LocalLeaf 后台版本过旧，请退出后重新打开 LocalLeaf.app。');
+  state.token=data.token;state.projects=data.projects;state.environment=data.environment;state.dataPath=data.dataPath;
   const ready=data.environment.engines.xelatex && data.environment.latexmk;$('engine-note').textContent=ready?'XeLaTeX 已就绪 · 无需联网':'本地编译器未就绪 · 查看使用说明';
   const previous=localStorage.getItem('localleaf-project');await openProject(data.projects.some(p=>p.id===previous)?previous:data.projects[0].id);
 }

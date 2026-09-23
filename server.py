@@ -26,6 +26,7 @@ from urllib.parse import parse_qs, urlparse, quote
 
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / 'projects'
+API_VERSION = 3
 TOKEN = secrets.token_urlsafe(32)
 LOCK = threading.RLock()
 COMPILE_LOCKS = {}
@@ -746,7 +747,9 @@ class Handler(BaseHTTPRequestHandler):
             if route == '/api/bootstrap':
                 with LOCK:
                     projects = [project_summary(p) for p in DATA.iterdir() if p.is_dir() and not p.is_symlink() and (p / '.localleaf.json').exists()]
-                return self.reply({'token': TOKEN, 'projects': sorted(projects, key=lambda x: -x['updated']), 'environment': environment(), 'dataPath': str(DATA)})
+                return self.reply({'token': TOKEN, 'apiVersion': API_VERSION, 'pid': os.getpid(),
+                                   'projects': sorted(projects, key=lambda x: -x['updated']),
+                                   'environment': environment(), 'dataPath': str(DATA)})
             if route == '/api/project':
                 with LOCK:
                     p = project(q.get('id'))
