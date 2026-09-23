@@ -24,6 +24,7 @@ If the default port is in use, run `python3 server.py --port 8788`.
 ## Features
 
 - Multiple projects, folders, and file operations (create, upload, rename, and delete), with image and PDF previews.
+- Add an existing local folder as a project. LocalLeaf keeps the source files in their original folder and displays the folder path in the project list; it does not copy them into `projects/`.
 - Local CodeMirror editor with LaTeX syntax highlighting, line numbers, undo/redo, section outline, find and replace, equation/citation snippets, font-size controls, and split-pane resizing.
 - Automatic saving; unsaved-change warnings when closing a page; cached drafts can be restored when reopening the same address in the same browser.
 - Concurrent-edit detection based on file content digests. Conflicting edits are rejected instead of overwriting existing files; the current editing copy can be downloaded from the file menu.
@@ -32,6 +33,7 @@ If the default port is in use, run `python3 server.py --port 8788`.
 - Manual or automatic compilation, real PDF preview and download, compilation logs, and ZIP import/export.
 - Reverse PDF-to-source navigation: double-click text in the PDF to open the corresponding project file and jump to the related LaTeX line.
 - One-click synchronization with Overleaf Git projects. The token is stored in the macOS Keychain and is not written into the paper directory.
+- Git projects check the remote branch for new commits when opened; the sync button and a prominent notice show how many remote updates are waiting. Each file also shows its latest local modification time.
 - Switch among light, dark, sepia, and ocean color themes, and between Chinese and English interface text. English is the default, and these preferences are saved locally in the browser.
 - Project folders use the project name directly; duplicate names receive a `(2)` suffix.
 - Compilation uses a project snapshot. If compilation fails, the last successful PDF is kept; a single compilation is stopped after 120 seconds.
@@ -57,6 +59,8 @@ Overleaf Git is an advanced Overleaf feature. In the online project, open **Inte
 ## Files and Backups
 
 `projects/<project-name>/` stores the original `.tex`, `.bib`, image, and other files directly, so they can also be opened in another editor. `.localleaf.json` stores project settings, `.history/` stores versions, and `.build/output.pdf` is the last successfully compiled PDF.
+
+For a project added from an existing local folder, the project index is stored under `projects/`, while the source files, build output, and history remain in the selected folder.
 
 **Export project** creates a source ZIP that can be uploaded to Overleaf again. It does not include local history or the PDF. To back up project settings and history, copy the entire `projects/` folder. Do not modify the same project with an external tool while it is compiling.
 

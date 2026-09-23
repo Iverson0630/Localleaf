@@ -69,3 +69,9 @@ html[data-theme="ocean"] .project-card{border-color:#3a596b}
 html[data-theme="ocean"] .project-card.active{background:#214453;border-color:#5cabb0}
 html[data-theme="ocean"] .search-bar{background:#1d3448;border-color:#2d4658}
 html[data-theme="ocean"] .search-bar input{background:#101d2b;color:#dcecf2;border-color:#3a596b}
+.project-path{display:block;font-style:normal;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:430px;margin-top:4px;color:#829086;font-size:10px}
+.local-project-badge{background:#e7eee9;color:#427255;margin-left:6px}
+.path-picker{display:flex;gap:8px}.path-picker input{flex:1;min-width:0}
+html[data-theme="dark"] .local-project-badge{background:#31523d;color:#c3e2ca}
+html[data-theme="ocean"] .local-project-badge{background:#285064;color:#c7e8ec}
+html[data-theme="sepia"] .local-project-badge{background:#eadcc3;color:#765a35}

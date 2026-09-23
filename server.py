@@ -13,6 +13,7 @@ import secrets
 import shutil
 import signal
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -138,6 +139,16 @@ def project(pid):
     p = DATA / pid
     if p.is_symlink() or not (p / '.localleaf.json').is_file():
         raise Problem('项目不存在', 404)
+    try:
+        record = json.loads((p / '.localleaf.json').read_text())
+    except (OSError, ValueError):
+        raise Problem('项目不存在', 404)
+    local_path = record.get('localPath')
+    if local_path:
+        root = Path(local_path).expanduser()
+        if not root.is_absolute() or not root.is_dir() or root.is_symlink():
+            raise Problem('本地项目文件夹不存在或不可用', 404)
+        return root.resolve()
     return p
 
 
@@ -177,13 +188,45 @@ def files(p):
 
 
 def meta(p):
-    return json.loads((p / '.localleaf.json').read_text())
+    resolved = p.resolve()
+    for entry in DATA.iterdir():
+        config = entry / '.localleaf.json'
+        if not config.is_file():
+            continue
+        try:
+            record = json.loads(config.read_text())
+            if record.get('localPath') and Path(record['localPath']).expanduser().resolve() == resolved:
+                return record
+        except (OSError, ValueError, RuntimeError):
+            continue
+    config = p / '.localleaf.json'
+    if config.is_file():
+        return json.loads(config.read_text())
+    raise Problem('项目设置不存在', 404)
+
+
+def config_path(p):
+    resolved = p.resolve()
+    for entry in DATA.iterdir():
+        candidate = entry / '.localleaf.json'
+        if not candidate.is_file():
+            continue
+        try:
+            record = json.loads(candidate.read_text())
+            if record.get('localPath') and Path(record['localPath']).expanduser().resolve() == resolved:
+                return candidate
+        except (OSError, ValueError, RuntimeError):
+            continue
+    config = p / '.localleaf.json'
+    if config.is_file():
+        return config
+    raise Problem('项目设置不存在', 404)
 
 
 def touch(p, **changes):
     m = meta(p)
     m.update(changes, updated=time.time())
-    write_json(p / '.localleaf.json', m)
+    write_json(config_path(p), m)
     return m
 
 
@@ -227,6 +270,43 @@ def new_project(name, template='english', imported=None):
         return meta(p)
     except Exception:
         shutil.rmtree(p)
+        raise
+
+
+def new_local_project(name, local_path):
+    name = clean_project_name(name or Path(str(local_path or '')).expanduser().name)
+    root = Path(str(local_path or '')).expanduser()
+    if not root.is_absolute() or not root.is_dir() or root.is_symlink():
+        raise Problem('请选择一个存在的本地文件夹')
+    root = root.resolve()
+    if root in (DATA.resolve(), ROOT.resolve()) or ROOT.resolve() in root.parents:
+        raise Problem('不能把 LocalLeaf 自身目录作为外部项目文件夹')
+    for entry in DATA.iterdir():
+        config = entry / '.localleaf.json'
+        if not config.is_file():
+            continue
+        try:
+            record = json.loads(config.read_text())
+            if record.get('localPath') and Path(record['localPath']).expanduser().resolve() == root:
+                raise Problem('这个文件夹已经添加为 LocalLeaf 项目', 409)
+        except Problem:
+            raise
+        except (OSError, ValueError, RuntimeError):
+            continue
+    pid = available_project_id(name)
+    tex = [str(x.relative_to(root)) for x in files(root) if x.suffix.lower() == '.tex']
+    main = 'main.tex' if 'main.tex' in tex else next(
+        (x for x in tex if '\\documentclass' in (root / x).read_text(errors='replace')),
+        tex[0] if tex else '')
+    record = {'id': pid, 'name': name, 'main': main, 'engine': 'xelatex',
+              'updated': time.time(), 'localPath': str(root)}
+    registry = DATA / pid
+    registry.mkdir(parents=True)
+    try:
+        write_json(registry / '.localleaf.json', record)
+        return record
+    except Exception:
+        shutil.rmtree(registry, ignore_errors=True)
         raise
 
 
@@ -438,11 +518,13 @@ def overleaf_branch(p):
 
 
 def project_summary(p):
-    summary = meta(p)
-    if git_remote(p):
-        summary = dict(summary, overleafGit=True, gitBranch=overleaf_branch(p))
+    record = meta(p)
+    actual = project(record['id'])
+    summary = dict(record, localProject=bool(record.get('localPath')), path=str(actual))
+    if git_remote(actual):
+        summary.update(overleafGit=True, gitBranch=overleaf_branch(actual))
     else:
-        summary = dict(summary, overleafGit=False)
+        summary.update(overleafGit=False)
     return summary
 
 
@@ -455,13 +537,18 @@ def git_status(pid):
     _, dirty_output = git_run(p, 'status', '--porcelain', '--untracked-files=normal', check=False)
     ahead = behind = 0
     branch = overleaf_branch(p)
+    fetch_code, fetch_output = git_run(p, 'fetch', '--quiet', 'overleaf', branch, check=False)
     code, counts = git_run(p, 'rev-list', '--left-right', '--count', f'HEAD...overleaf/{branch}', check=False)
     if code == 0 and re.fullmatch(r'\d+\s+\d+', counts):
         ahead, behind = map(int, counts.split())
     _, last = git_run(p, 'log', '-1', '--format=%ct', check=False)
-    return {'configured': True, 'available': True, 'savedToken': has_git_credential(),
+    result = {'configured': True, 'available': True, 'savedToken': has_git_credential(),
             'remote': remote, 'branch': branch, 'dirty': bool(dirty_output),
-            'ahead': ahead, 'behind': behind, 'lastCommit': int(last) if last.isdigit() else None}
+            'ahead': ahead, 'behind': behind, 'needsPull': behind > 0,
+            'lastCommit': int(last) if last.isdigit() else None}
+    if fetch_code:
+        result['remoteCheckError'] = next((line for line in reversed(fetch_output.splitlines()) if line.strip()), 'Unable to check the remote repository')
+    return result
 
 
 def _sync_project(p):
@@ -664,7 +751,10 @@ class Handler(BaseHTTPRequestHandler):
                 with LOCK:
                     p = project(q.get('id'))
                     result = p / '.build/result.json'
-                    return self.reply({'project': meta(p), 'files': [{'path': str(f.relative_to(p)), 'size': f.stat().st_size} for f in files(p)],
+                    record = meta(p)
+                    info = dict(record, localProject=bool(record.get('localPath')), path=str(p))
+                    return self.reply({'project': info, 'files': [{'path': str(f.relative_to(p)), 'size': f.stat().st_size,
+                                                                  'updated': f.stat().st_mtime} for f in files(p)],
                                        'build': json.loads(result.read_text()) if result.exists() else None})
             if route == '/api/git-status':
                 return self.reply(git_status(q.get('id')))
@@ -741,11 +831,25 @@ class Handler(BaseHTTPRequestHandler):
                 return self.reply(sync_project(b.get('id')))
             if route == '/api/git-import':
                 return self.reply(import_git_project(b.get('name'), b.get('remote'), b.get('token')))
+            if route == '/api/pick-local-folder':
+                if not sys.platform.startswith('darwin'):
+                    raise Problem('本地文件夹选择器目前只支持 macOS', 501)
+                script = 'POSIX path of (choose folder with prompt "Choose a LocalLeaf project folder")'
+                result = subprocess.run(['osascript', '-e', script], stdout=subprocess.PIPE,
+                                        stderr=subprocess.PIPE, timeout=120)
+                if result.returncode:
+                    raise Problem('已取消文件夹选择', 409)
+                path = result.stdout.decode('utf-8', errors='replace').strip()
+                if not path:
+                    raise Problem('未选择文件夹')
+                return self.reply({'path': path})
             with LOCK:
                 if route == '/api/create':
                     return self.reply(new_project(b.get('name', ''), b.get('template', 'english')))
                 if route == '/api/import':
                     return self.reply(new_project(b.get('name', 'Imported project'), imported=unpack(b.get('data', ''))))
+                if route == '/api/local-import':
+                    return self.reply(new_local_project(b.get('name', ''), b.get('path', '')))
                 p = project(b.get('id'))
                 if route == '/api/save':
                     f = safe_path(p, b.get('path'))
@@ -806,10 +910,11 @@ class Handler(BaseHTTPRequestHandler):
                     name = str(b.get('name', '')).strip()[:100]
                     if not name:
                         raise Problem('请输入项目名称')
-                    new_id = available_project_id(name, current=p)
+                    registry = config_path(p).parent
+                    new_id = available_project_id(name, current=registry)
                     updated = touch(p, id=new_id, name=name, main=b['main'], engine=b['engine'])
-                    if new_id != p.name:
-                        p.rename(DATA / new_id)
+                    if new_id != registry.name:
+                        registry.rename(DATA / new_id)
                     return self.reply(updated)
                 if route == '/api/restore':
                     hid = b.get('historyId', '')

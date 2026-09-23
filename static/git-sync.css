@@ -9,6 +9,32 @@
   animation: git-sync-pulse .8s ease-in-out infinite alternate;
 }
 
+.git-sync-button.needs-update {
+  color: #fff;
+  border-color: #f4c56f;
+  background: #a65f1d;
+  box-shadow: 0 0 0 2px #f4c56f55;
+  animation: git-update-pulse 1.6s ease-in-out infinite;
+}
+
+.git-update-alert {
+  color: #ffe0a3;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.file-updated {
+  margin-left: auto;
+  color: #96a39a;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+@keyframes git-update-pulse {
+  50% { filter: brightness(1.16); }
+}
+
 .git-connection-card {
   padding: 13px 14px;
   margin: 0 0 16px;

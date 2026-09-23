@@ -21,6 +21,8 @@ function applyLanguage(language){
   $('theme-toggle').setAttribute('aria-label',$('theme-toggle').title);
   if($('compile-label')&&!state.compiling)$('compile-label').textContent=dict.compileAgain;
   if($('git-sync-label')&&!state.syncing)$('git-sync-label').textContent=state.gitStatus?.configured?(state.language==='en'?'Sync Overleaf':'同步 Overleaf'):(state.language==='en'?'Connect Overleaf':'连接 Overleaf');
+  if(state.project)renderFiles();
+  if(state.gitStatus?.configured)updateGitButton(state.gitStatus);
   document.title=(state.project?.name||'LocalLeaf')+' · '+(state.language==='en'?'Offline paper workspace':'离线论文工作台');
   localStorage.setItem('localleaf-language',state.language);
 }
@@ -95,13 +97,18 @@ function updateOutline(){
   $('outline').innerHTML=list.length?list.map(x=>`<button data-line="${x.line}" style="padding-left:${12+x.depth*12}px">${esc(x.title)}</button>`).join(''):'<div class="outline-empty">当前文件中的章节会显示在这里。</div>';
   $('outline').querySelectorAll('button').forEach(b=>b.onclick=()=>{editor.setCursor(Number(b.dataset.line),0);editor.focus();});
 }
+function formatFileTime(timestamp){
+  if(!timestamp)return '';
+  return new Date(timestamp*1000).toLocaleString(state.language==='en'?'en-US':'zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+}
 function renderFiles(){
   let folder='';
   $('file-tree').innerHTML=state.files.map(f=>{
     const parts=f.path.split('/'), parent=parts.slice(0,-1).join('/');
     let html='';if(parent && parent!==folder) html=`<div class="folder">▾ &nbsp;${esc(parent)}</div>`;folder=parent;
     const ext=f.path.split('.').pop().toLowerCase(), icon=ext==='tex'?'TᴇX':ext==='bib'?'[1]':['png','jpg','jpeg','pdf','svg'].includes(ext)?'▧':'≡';
-    return html+`<button class="file-row${state.file===f.path?' selected':''}" data-path="${esc(f.path)}" title="${esc(f.path)}" style="padding-left:${parent?22:10}px"><span class="file-type">${icon}</span><span class="file-name">${esc(parts.pop())}</span>${state.project.main===f.path?'<span class="file-main">主</span>':''}</button>`;
+    const filename=parts.pop(), updated=formatFileTime(f.updated), fullUpdated=f.updated?new Date(f.updated*1000).toLocaleString(state.language==='en'?'en-US':'zh-CN'):'';
+    return html+`<button class="file-row${state.file===f.path?' selected':''}" data-path="${esc(f.path)}" title="${esc(f.path)} · ${esc(fullUpdated)}" style="padding-left:${parent?22:10}px"><span class="file-type">${icon}</span><span class="file-name">${esc(filename)}</span><span class="file-updated">${esc(updated)}</span>${state.project.main===f.path?'<span class="file-main">主</span>':''}</button>`;
   }).join('');
   $('file-tree').querySelectorAll('button').forEach(b=>b.onclick=()=>guard(()=>openFile(b.dataset.path)));
 }
@@ -140,7 +147,7 @@ async function openProject(pid){
   await save();clearTimeout(autoTimer);
   const data=await api('project?id='+encodeURIComponent(pid));
   state.project=data.project;state.files=data.files;state.build=data.build;state.file=null;state.dirty=false;
-  $('project-name').textContent=data.project.name;document.title=data.project.name+' · '+(state.language==='en'?'Offline paper workspace':'离线论文工作台');localStorage.setItem('localleaf-project',pid);
+  $('project-name').textContent=data.project.name;$('projects-button').title=data.project.path||'';document.title=data.project.name+' · '+(state.language==='en'?'Offline paper workspace':'离线论文工作台');localStorage.setItem('localleaf-project',pid);
   const previous=localStorage.getItem('localleaf-file:'+pid);
   const selected=state.files.some(f=>f.path===previous)?previous:state.project.main||state.files[0]?.path;
   renderFiles();showBuild(data.build);
@@ -219,14 +226,20 @@ bind('compile-button',compile);bind('first-compile',compile);
 function updateGitButton(status){
   state.gitStatus=status;const button=$('git-sync-button'),label=$('git-sync-label');
   button.classList.toggle('connected',!!status?.configured);
+  button.classList.toggle('needs-update',!!status?.needsPull);
+  const alert=$('git-update-alert');
+  if(alert){
+    alert.hidden=!status?.needsPull;
+    if(status?.needsPull)alert.textContent=state.language==='en'?`⚠ ${status.behind} remote update${status.behind===1?'':'s'} available`:`⚠ 远端有 ${status.behind} 个更新待同步`;
+  }
   if(state.syncing){label.textContent='正在同步…';button.classList.add('busy');button.disabled=true;return;}
   button.classList.remove('busy');button.disabled=!status?.available;
-  label.textContent=status?.configured?(state.language==='en'?'Sync Overleaf':'同步 Overleaf'):(state.language==='en'?'Connect Overleaf':'连接 Overleaf');
+  label.textContent=status?.configured?(status?.needsPull?(state.language==='en'?`⚠ Sync (${status.behind})`:`⚠ 同步 (${status.behind})`):(state.language==='en'?'Sync Overleaf':'同步 Overleaf')):(state.language==='en'?'Connect Overleaf':'连接 Overleaf');
   button.title=status?.configured?`一键拉取并推送 · ${status.remote}`:'连接 Overleaf Git 项目';
 }
 async function refreshGitStatus(){
   if(!state.project)return;
-  try{updateGitButton(await api('git-status?'+query()));}
+  try{const status=await api('git-status?'+query());updateGitButton(status);if(status.needsPull){const key=state.project.id+':'+status.behind;if(state.gitAlertKey!==key){state.gitAlertKey=key;toast(state.language==='en'?`${status.behind} remote update${status.behind===1?'':'s'} available. Click Sync Overleaf.`:`远端有 ${status.behind} 个更新，请点击“同步 Overleaf”。`,true);}}else state.gitAlertKey='';}
   catch(_){updateGitButton({configured:false,available:state.environment.git});}
 }
 function gitSetupDialog(){
@@ -258,10 +271,16 @@ async function syncOverleaf(){
 bind('git-sync-button',()=>state.gitStatus?.configured?syncOverleaf():gitSetupDialog());
 bind('projects-button',async()=>{
   await save();const data=await api('bootstrap');state.projects=data.projects;
-  modal('我的项目',`<div>${data.projects.map(p=>`<button class="project-card${p.id===state.project.id?' active':''}" data-project="${p.id}"><span class="project-symbol">${p.overleafGit?'⇅':'▤'}</span><span><strong>${esc(p.name)}</strong><small>${new Date(p.updated*1000).toLocaleString('zh-CN')} · ${esc(p.engine)}${p.overleafGit?`<span class="project-git-badge">Overleaf · ${esc(p.gitBranch||'Git')}</span>`:''}</small></span></button>`).join('')}</div><div class="modal-actions"><button id="import-project" class="secondary">导入 ZIP</button><button id="import-git-project" class="secondary">从 Overleaf Git 导入</button><button id="new-project" class="primary">＋ 新建项目</button></div>`);
+  modal('我的项目',`<div>${data.projects.map(p=>`<button class="project-card${p.id===state.project.id?' active':''}" data-project="${p.id}" title="${esc(p.path||'')}"><span class="project-symbol">${p.overleafGit?'⇅':p.localProject?'⌂':'▤'}</span><span><strong>${esc(p.name)}</strong><small>${new Date(p.updated*1000).toLocaleString('zh-CN')} · ${esc(p.engine)}${p.localProject?`<span class="project-git-badge local-project-badge">Local</span><em class="project-path">${esc(p.path)}</em>`:''}${p.overleafGit?`<span class="project-git-badge">Overleaf · ${esc(p.gitBranch||'Git')}</span>`:''}</small></span></button>`).join('')}</div><div class="modal-actions"><button id="import-project" class="secondary">导入 ZIP</button><button id="import-local-project" class="secondary">打开本地文件夹</button><button id="import-git-project" class="secondary">从 Overleaf Git 导入</button><button id="new-project" class="primary">＋ 新建项目</button></div>`);
   $('modal-body').querySelectorAll('[data-project]').forEach(b=>b.onclick=()=>guard(()=>openProject(b.dataset.project)));
-  bind('import-project',()=>$('zip-upload').click());bind('import-git-project',gitImportDialog);bind('new-project',newProjectDialog);
+  bind('import-project',()=>$('zip-upload').click());bind('import-local-project',localProjectDialog);bind('import-git-project',gitImportDialog);bind('new-project',newProjectDialog);
 });
+function localProjectDialog(){
+  const english=state.language==='en';
+  modal(english?'Open local folder':'打开本地文件夹',`<form id="modal-form"><label class="field">${english?'Project name':'项目名称'}<input id="local-project-name" placeholder="${english?'Defaults to the folder name':'默认使用文件夹名称'}" maxlength="100"></label><label class="field">${english?'Folder path':'文件夹路径'}<div class="path-picker"><input id="local-project-path" placeholder="/Users/you/Documents/paper" required spellcheck="false"><button id="pick-local-folder" type="button" class="secondary">${english?'Choose…':'选择…'}</button></div></label><p class="hint">${english?'Files stay in the selected folder. LocalLeaf only saves project settings and history alongside its project record.':'文件会继续保存在所选文件夹中。LocalLeaf 不会复制文件，只保存项目设置和历史记录。'}</p><div class="modal-actions"><button type="submit" class="primary">${english?'Add local project':'添加本地项目'}</button></div></form>`);
+  bind('pick-local-folder',async()=>{const picked=await api('pick-local-folder',{});$('local-project-path').value=picked.path;if(!$('local-project-name').value)$('local-project-name').value=picked.path.split('/').filter(Boolean).pop()||'';});
+  formSubmit(async()=>{const project=await api('local-import',{name:$('local-project-name').value,path:$('local-project-path').value});await openProject(project.id);toast(english?'Local project added':'本地项目已添加');});
+}
 function gitImportDialog(){
   const saved=!!state.gitStatus?.savedToken;
   modal('从 Overleaf Git 导入',`<form id="modal-form"><label class="field">Overleaf 项目名称<input id="git-import-name" placeholder="例如 ICRA 2027 Paper" required maxlength="100"></label><label class="field">Git 地址或 clone 命令<input id="git-import-remote" placeholder="git clone https://git@git.overleaf.com/项目ID" required spellcheck="false"></label><label class="field">Authentication token<input id="git-import-token" type="password" ${saved?'':'required'} autocomplete="new-password" placeholder="${saved?'留空使用钥匙串中已保存的 Token':'粘贴新生成的 Token'}"></label><p class="hint">将创建同名本地项目并采用 Overleaf 最新文件。${saved?'当前已有 Token 保存在 macOS 钥匙串。':'首次成功后 Token 会保存在 macOS 钥匙串，后续项目无需再输入。'}</p><div class="modal-actions"><button type="submit" class="primary">导入项目</button></div></form>`);
