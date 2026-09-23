@@ -1,0 +1,19 @@
+<body><div id="out">running</div><script type="module">
+const log=[];
+window.onerror=(m)=>log.push('ERROR '+m);
+try{
+  const pdfjsLib = await import('/static/vendor/pdf.min.mjs');
+  await import('/static/vendor/map-upsert-polyfill.mjs');
+  pdfjsLib.GlobalWorkerOptions.workerSrc='/static/vendor/pdf.worker.patched.mjs';
+  const t=await fetch('/static/_sample.pdf'); const buf=await t.arrayBuffer();
+  const doc=await pdfjsLib.getDocument({data:buf}).promise;
+  const page=await doc.getPage(1);
+  const vp=page.getViewport({scale:1});
+  const c=document.createElement('canvas'); c.width=vp.width; c.height=vp.height;
+  await page.render({canvasContext:c.getContext('2d'), viewport:vp, canvas:c}).promise;
+  const px=c.getContext('2d').getImageData(0,0,c.width,c.height).data;
+  let ink=0; for(let i=0;i<px.length;i+=4) if(px[i]<200) ink++;
+  log.push('pages='+doc.numPages+' size='+Math.round(vp.width)+'x'+Math.round(vp.height)+' inkPixels='+ink);
+}catch(e){ log.push('EXCEPTION '+(e&&e.message)); }
+document.title=log.join(' | ');
+</script></body>

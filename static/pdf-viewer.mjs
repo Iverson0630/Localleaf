@@ -1,6 +1,13 @@
+// Must precede pdf.min.mjs: pdf.js 5.6.x uses Map.prototype.getOrInsertComputed, which
+// Chrome 143 and older do not implement (the viewer otherwise fails with
+// "getOrInsertComputed is not a function"). The import is hoisted, so the polyfill is
+// evaluated before the pdf.js module body runs.
+import './vendor/map-upsert-polyfill.mjs';
 import * as pdfjsLib from './vendor/pdf.min.mjs';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = '/static/vendor/pdf.worker.min.mjs';
+// The worker is a separate realm and needs the same polyfill; pdf.worker.patched.mjs loads it
+// and then the stock worker.
+pdfjsLib.GlobalWorkerOptions.workerSrc = '/static/vendor/pdf.worker.patched.mjs';
 
 export class LocalLeafPDFViewer {
   constructor(container, onNavigate, onStatus) {
