@@ -13,6 +13,7 @@ import secrets
 import shutil
 import signal
 import subprocess
+import shlex
 import sys
 import tempfile
 import threading
@@ -484,8 +485,8 @@ def git_credential(p, token, action='approve'):
             set_token(token)
         elif action == 'reject':
             delete_token()
-    except RuntimeError:
-        raise Problem('无法把 Overleaf 令牌保存到 macOS 钥匙串。', 500)
+    except RuntimeError as error:
+        raise Problem(f'无法把 Overleaf 令牌保存到系统密钥库：{error}', 500)
 
 
 def has_git_credential():
@@ -605,7 +606,7 @@ def setup_git(pid, remote_url, token, mode='pull'):
         git_run(p, 'config', 'user.name', 'LocalLeaf')
         git_run(p, 'config', 'user.email', 'localleaf@localhost')
         helper = ROOT / 'keychain_credential.py'
-        git_run(p, 'config', 'credential.helper', f'!/usr/bin/python3 {helper}')
+        git_run(p, 'config', 'credential.helper', f'!{shlex.quote(sys.executable)} {shlex.quote(str(helper))}')
         git_run(p, 'config', 'core.fileMode', 'false')
         write_git_exclude(p)
         if git_remote(p):

@@ -1,14 +1,30 @@
 #!/usr/bin/env python3
-"""LocalLeaf's minimal macOS Keychain credential helper for Overleaf Git."""
+"""LocalLeaf's credential helper for Overleaf Git.
+
+The token is kept in the operating system's own secret store, never in the paper directory:
+
+    macOS   Keychain, through the Security framework
+    Linux   GNOME Keyring / KWallet, through libsecret's Secret Service API
+
+Both are reached without third-party packages -- macOS through ctypes, Linux through
+PyGObject, which ships with the desktop. When neither is usable the helper says so instead
+of writing the token to disk.
+"""
 import ctypes
 from pathlib import Path
 import sys
 
-SERVICE = b'LocalLeaf Overleaf Git'
-ACCOUNT = b'git.overleaf.com'
+SERVICE = 'LocalLeaf Overleaf Git'
+ACCOUNT = 'git.overleaf.com'
+HOST = 'git.overleaf.com'
 NOT_FOUND = -25300
+IS_MACOS = sys.platform == 'darwin'
+
+_SERVICE_B = SERVICE.encode()
+_ACCOUNT_B = ACCOUNT.encode()
 
 
+# --------------------------------------------------------------------------- macOS
 def _libraries():
     security = ctypes.cdll.LoadLibrary('/System/Library/Frameworks/Security.framework/Security')
     core = ctypes.cdll.LoadLibrary('/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation')
@@ -37,12 +53,12 @@ def _find():
     data = ctypes.c_void_p()
     item = ctypes.c_void_p()
     status = security.SecKeychainFindGenericPassword(
-        None, len(SERVICE), SERVICE, len(ACCOUNT), ACCOUNT,
+        None, len(_SERVICE_B), _SERVICE_B, len(_ACCOUNT_B), _ACCOUNT_B,
         ctypes.byref(length), ctypes.byref(data), ctypes.byref(item))
     return security, core, status, length, data, item
 
 
-def get_token():
+def _keychain_get():
     security, core, status, length, data, item = _find()
     if status == NOT_FOUND:
         return None
@@ -56,7 +72,7 @@ def get_token():
             core.CFRelease(item)
 
 
-def set_token(token):
+def _keychain_set(token):
     value = token.encode('utf-8')
     security, core, status, length, data, item = _find()
     if status == 0:
@@ -67,14 +83,14 @@ def set_token(token):
             core.CFRelease(item)
     elif status == NOT_FOUND:
         result = security.SecKeychainAddGenericPassword(
-            None, len(SERVICE), SERVICE, len(ACCOUNT), ACCOUNT, len(value), value, None)
+            None, len(_SERVICE_B), _SERVICE_B, len(_ACCOUNT_B), _ACCOUNT_B, len(value), value, None)
     else:
         result = status
     if result != 0:
         raise RuntimeError(f'Keychain write failed ({result})')
 
 
-def delete_token():
+def _keychain_delete():
     security, core, status, length, data, item = _find()
     if status == NOT_FOUND:
         return
@@ -89,6 +105,95 @@ def delete_token():
         raise RuntimeError(f'Keychain delete failed ({result})')
 
 
+# --------------------------------------------------------------------------- Linux
+SECRET_SNIPPET = """
+import sys
+import gi
+gi.require_version('Secret', '1')
+from gi.repository import Secret
+schema = Secret.Schema.new('org.localleaf.OverleafGit', Secret.SchemaFlags.NONE,
+                           {'service': Secret.SchemaAttributeType.STRING,
+                            'account': Secret.SchemaAttributeType.STRING})
+attributes = {'service': %r, 'account': %r}
+action = sys.argv[1]
+if action == 'get':
+    value = Secret.password_lookup_sync(schema, attributes, None)
+    sys.stdout.write(value or '')
+elif action == 'set':
+    token = sys.stdin.read()
+    if not Secret.password_store_sync(schema, attributes, Secret.COLLECTION_DEFAULT,
+                                      %r, token, None):
+        raise SystemExit('store returned false')
+elif action == 'delete':
+    Secret.password_clear_sync(schema, attributes, None)
+""" % (SERVICE, ACCOUNT, SERVICE)
+
+
+def _gi_interpreter():
+    """An interpreter that can import PyGObject.
+
+    PyGObject is a distribution package, so it is missing from conda and most virtualenvs --
+    and LocalLeaf may well be launched by one of those. Prefer the current interpreter, then
+    fall back to the system ones, so the secret store keeps working either way."""
+    import shutil
+    import subprocess
+    candidates = [sys.executable, '/usr/bin/python3', shutil.which('python3'), '/usr/bin/python']
+    for candidate in candidates:
+        if not candidate:
+            continue
+        try:
+            probe = subprocess.run([candidate, '-c', 'import gi; gi.require_version("Secret", "1")'],
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15)
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if probe.returncode == 0:
+            return candidate
+    raise RuntimeError(
+        'No system secret store available: no interpreter with the libsecret bindings. '
+        'Install them (Debian/Ubuntu: sudo apt install gir1.2-secret-1 python3-gi; '
+        'Fedora: sudo dnf install libsecret python3-gobject), or start LocalLeaf with the '
+        f'system python. Tried: {", ".join(c for c in candidates if c)}')
+
+
+def _secret_call(action, payload=None):
+    import subprocess
+    command = [_gi_interpreter(), '-c', SECRET_SNIPPET, action]
+    try:
+        result = subprocess.run(command, input=payload or '', capture_output=True,
+                                text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError) as error:
+        raise RuntimeError(f'Secret Service {action} failed ({error})') from error
+    if result.returncode != 0:
+        detail = (result.stderr or '').strip().splitlines()
+        raise RuntimeError(f'Secret Service {action} failed ({detail[-1] if detail else "unknown error"})')
+    return result.stdout
+
+
+def _secret_get():
+    return _secret_call('get') or None
+
+
+def _secret_set(token):
+    _secret_call('set', token)
+
+
+def _secret_delete():
+    _secret_call('delete')
+
+
+# --------------------------------------------------------------------------- dispatch
+def get_token():
+    return _keychain_get() if IS_MACOS else _secret_get()
+
+
+def set_token(token):
+    (_keychain_set if IS_MACOS else _secret_set)(token)
+
+
+def delete_token():
+    (_keychain_delete if IS_MACOS else _secret_delete)()
+
+
 def helper(operation):
     fields = {}
     for line in sys.stdin:
@@ -98,7 +203,7 @@ def helper(operation):
         if '=' in line:
             key, value = line.split('=', 1)
             fields[key] = value
-    if fields.get('host') != 'git.overleaf.com':
+    if fields.get('host') != HOST:
         return
     if operation == 'get':
         token = get_token()
