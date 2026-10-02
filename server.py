@@ -443,11 +443,20 @@ def git_bin():
 def git_run(p, *args, timeout=90, check=True):
     env = os.environ.copy()
     env.update(GIT_TERMINAL_PROMPT='0', GCM_INTERACTIVE='Never', LC_ALL='C')
-    proc = subprocess.run([git_bin(), *args], cwd=p, env=env, stdout=subprocess.PIPE,
-                          stderr=subprocess.STDOUT, timeout=timeout)
-    output = proc.stdout.decode('utf-8', errors='replace').strip()
+    retries = 3 if args and args[0] in ('fetch', 'push', 'ls-remote') else 1
+    for attempt in range(retries):
+        proc = subprocess.run([git_bin(), *args], cwd=p, env=env, stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT, timeout=timeout)
+        output = proc.stdout.decode('utf-8', errors='replace').strip()
+        transient = proc.returncode and ('error: 503' in output.lower() or 'no healthy upstream' in output.lower())
+        if transient and attempt + 1 < retries:
+            time.sleep(1.5 * (attempt + 1))
+            continue
+        break
     if check and proc.returncode:
         lowered = output.lower()
+        if 'error: 503' in lowered or 'no healthy upstream' in lowered:
+            raise Problem('Overleaf Git 服务暂时不可用，LocalLeaf 已自动重试。请稍后再次同步。', 503)
         if 'authentication failed' in lowered or 'could not read password' in lowered:
             raise Problem('Overleaf 认证失败，请检查 Git authentication token。', 401)
         if 'repository not found' in lowered or 'not found' in lowered:
