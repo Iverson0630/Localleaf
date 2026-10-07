@@ -75,3 +75,9 @@ html[data-theme="ocean"] .search-bar input{background:#101d2b;color:#dcecf2;bord
 html[data-theme="dark"] .local-project-badge{background:#31523d;color:#c3e2ca}
 html[data-theme="ocean"] .local-project-badge{background:#285064;color:#c7e8ec}
 html[data-theme="sepia"] .local-project-badge{background:#eadcc3;color:#765a35}
+.file-tree{position:relative}
+.file-tree.drag-over{outline:2px dashed #5da67c;outline-offset:-5px;background:#e7f4eb}
+.file-tree.drag-over::after{content:attr(data-drop-label);position:absolute;inset:7px;z-index:5;display:flex;align-items:center;justify-content:center;border-radius:7px;background:#e7f4ebee;color:#246442;font-size:13px;font-weight:650;text-align:center;pointer-events:none}
+html[data-theme="dark"] .file-tree.drag-over,html[data-theme="dark"] .file-tree.drag-over::after{background:#284334ee;color:#c9ead3}
+html[data-theme="ocean"] .file-tree.drag-over,html[data-theme="ocean"] .file-tree.drag-over::after{background:#21495aee;color:#d3eff2}
+html[data-theme="sepia"] .file-tree.drag-over,html[data-theme="sepia"] .file-tree.drag-over::after{background:#eee0c7ee;color:#6d512e}

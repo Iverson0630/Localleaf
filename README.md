@@ -24,6 +24,7 @@ If the default port is in use, run `python3 server.py --port 8788`.
 ## Features
 
 - Multiple projects, folders, and file operations (create, upload, rename, and delete), with image and PDF previews.
+- Drag one or more files onto the project file list to upload them. Duplicate names prompt before replacement, and overwritten files remain available in History.
 - Add an existing local folder as a project. LocalLeaf keeps the source files in their original folder and displays the folder path in the project list; it does not copy them into `projects/`.
 - Local CodeMirror editor with LaTeX syntax highlighting, line numbers, undo/redo, section outline, find and replace, equation/citation snippets, font-size controls, and split-pane resizing.
 - Automatic saving; unsaved-change warnings when closing a page; cached drafts can be restored when reopening the same address in the same browser.

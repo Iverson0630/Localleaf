@@ -1,5 +1,5 @@
 'use strict';
-const EXPECTED_API_VERSION=3;
+const EXPECTED_API_VERSION=4;
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const state = {token:'', projects:[], project:null, files:[], file:null, revision:null, dirty:false, loading:false, saving:null, compiling:false, syncing:false, switching:false, build:null, gitStatus:null, environment:{}, editVersion:0, pdfViewer:null, sourceHighlight:null};
@@ -18,6 +18,7 @@ function applyLanguage(language){
   $('language-toggle').textContent=state.language==='en'?'中文':'EN';
   $('language-toggle').title=state.language==='en'?'Switch to Chinese':'切换为英文';
   $('language-toggle').setAttribute('aria-label',$('language-toggle').title);
+  $('file-tree').dataset.dropLabel=state.language==='en'?'Drop files to upload':'拖放文件到这里上传';
   $('theme-toggle').title=(state.language==='en'?'Color theme: ':'配色：')+themeNames[state.language][state.theme]+' · '+(state.language==='en'?'click to change':'点击切换');
   $('theme-toggle').setAttribute('aria-label',$('theme-toggle').title);
   if($('compile-label')&&!state.compiling)$('compile-label').textContent=dict.compileAgain;
@@ -320,10 +321,41 @@ bind('pdf-zoom-out',()=>state.pdfViewer?.setZoom(-.15));bind('pdf-zoom-in',()=>s
 bind('log-toggle',()=>{$('build-log').hidden=!$('build-log').hidden;editor.refresh();});
 bind('upload-button',()=>$('file-upload').click());
 function toBase64(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result.split(',')[1]);r.onerror=()=>reject(new Error('读取文件失败'));r.readAsDataURL(file);});}
-$('file-upload').onchange=()=>guard(async()=>{
-  await save();for(const file of $('file-upload').files){if(file.size>20*1024*1024)throw new Error('单个文件不能超过 20 MB');await api('upload',{id:state.project.id,path:file.name,data:await toBase64(file)});}
-  await refreshProject();$('file-upload').value='';toast('文件已上传到本地项目');
-});
+async function uploadFiles(fileList){
+  const incoming=Array.from(fileList||[]).filter(file=>file instanceof File);
+  if(!incoming.length)return;
+  const oversized=incoming.find(file=>file.size>20*1024*1024);
+  if(oversized)throw new Error((state.language==='en'?'Files cannot exceed 20 MB: ':'单个文件不能超过 20 MB：')+oversized.name);
+  await save();
+  const existing=new Set(state.files.map(file=>file.path));
+  const paths=incoming.map(file=>file.webkitRelativePath||file.name);
+  const seen=new Set(existing),conflicts=[];
+  for(const path of paths){if(seen.has(path))conflicts.push(path);seen.add(path);}
+  let overwrite=false;
+  if(conflicts.length){
+    const unique=[...new Set(conflicts)],preview=unique.slice(0,8).join('\n');
+    const more=unique.length>8?`\n${state.language==='en'?`…and ${unique.length-8} more`:`……以及另外 ${unique.length-8} 个文件`}`:'';
+    overwrite=window.confirm((state.language==='en'?`The following files already exist:\n\n${preview}${more}\n\nOverwrite them? Previous versions will remain in History.`:`以下文件已经存在：\n\n${preview}${more}\n\n是否覆盖？旧版本仍会保留在历史版本中。`));
+  }
+  const uploaded=[],skipped=[],batchSeen=new Set(existing);
+  for(let index=0;index<incoming.length;index++){
+    const file=incoming[index],path=paths[index],duplicate=batchSeen.has(path);
+    if(duplicate&&!overwrite){skipped.push(path);continue;}
+    await api('upload',{id:state.project.id,path,data:await toBase64(file),overwrite:duplicate&&overwrite});
+    uploaded.push(path);batchSeen.add(path);
+  }
+  const current=state.file;
+  await refreshProject();
+  if(current&&uploaded.includes(current))await openFile(current);
+  if(uploaded.length)toast(state.language==='en'?`${uploaded.length} file${uploaded.length===1?'':'s'} uploaded${skipped.length?`; ${skipped.length} skipped`:''}`:`已上传 ${uploaded.length} 个文件${skipped.length?`，跳过 ${skipped.length} 个重复文件`:''}`);
+  else if(skipped.length)toast(state.language==='en'?'Duplicate files were not overwritten.':'重复文件未覆盖。');
+}
+$('file-upload').onchange=()=>guard(async()=>{try{await uploadFiles($('file-upload').files);}finally{$('file-upload').value='';}});
+const fileDropTarget=$('file-tree');let fileDragDepth=0;
+fileDropTarget.addEventListener('dragenter',event=>{if(event.dataTransfer?.types?.includes('Files')){event.preventDefault();fileDragDepth++;fileDropTarget.classList.add('drag-over');}});
+fileDropTarget.addEventListener('dragover',event=>{if(event.dataTransfer?.types?.includes('Files')){event.preventDefault();event.dataTransfer.dropEffect='copy';}});
+fileDropTarget.addEventListener('dragleave',()=>{fileDragDepth=Math.max(0,fileDragDepth-1);if(!fileDragDepth)fileDropTarget.classList.remove('drag-over');});
+fileDropTarget.addEventListener('drop',event=>{event.preventDefault();fileDragDepth=0;fileDropTarget.classList.remove('drag-over');guard(()=>uploadFiles(event.dataTransfer.files));});
 $('zip-upload').onchange=()=>guard(async()=>{
   const file=$('zip-upload').files[0];if(!file)return;if(file.size>80*1024*1024)throw new Error('ZIP 不能超过 80 MB');await save();toast('正在导入项目…');
   const p=await api('import',{name:file.name.replace(/\.zip$/i,''),data:await toBase64(file)});await openProject(p.id);$('zip-upload').value='';toast('项目导入完成');

@@ -27,7 +27,7 @@ from urllib.parse import parse_qs, urlparse, quote
 
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / 'projects'
-API_VERSION = 3
+API_VERSION = 4
 TOKEN = secrets.token_urlsafe(32)
 LOCK = threading.RLock()
 COMPILE_LOCKS = {}
@@ -887,14 +887,21 @@ class Handler(BaseHTTPRequestHandler):
                     return self.reply({'ok': True})
                 if route == '/api/upload':
                     f = safe_path(p, b.get('path'))
-                    if f.exists():
-                        raise Problem('同名文件已存在，请重命名后上传', 409)
                     content = base64.b64decode(b.get('data', ''), validate=True)
                     if len(content) > MAX_FILE:
                         raise Problem('文件不能超过 20 MB')
+                    existed = f.is_file()
+                    if f.exists() and not existed:
+                        raise Problem('同名文件夹已存在，无法上传文件', 409)
+                    if existed and b.get('overwrite') is not True:
+                        raise Problem('同名文件已存在，请确认是否覆盖', 409)
+                    if existed:
+                        old = f.read_bytes()
+                        if old != content:
+                            history(p, b['path'], old)
                     atomic(f, content)
                     touch(p)
-                    return self.reply({'ok': True})
+                    return self.reply({'ok': True, 'overwritten': existed})
                 if route == '/api/rename':
                     src, dst = safe_path(p, b.get('path')), safe_path(p, b.get('newPath'))
                     if not src.is_file():
